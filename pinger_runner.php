@@ -1,7 +1,9 @@
 <?php
+/*
+    Here programm start its life.
+    I will add console support later.
+*/
+require_once __DIR__."/vendor/autoload.php";
 
-namespace WhoCares;
-
-require 'OpenvpnPinger.php';
-
-(new OpenvpnPinger())->getBestServer();
+$mainPinger = new App\Libs\OpenvpnPinger(__DIR__."/configs/hide_me.ovpn");
+$mainPinger->getBestServer();

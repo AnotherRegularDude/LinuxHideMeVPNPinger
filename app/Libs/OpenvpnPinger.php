@@ -1,20 +1,21 @@
 <?php
 
-namespace WhoCares;
+namespace App\Libs;
 
 class OpenvpnPinger
 {
-    const OVPN_FILE_NAME = 'hide_me.ovpn';
     const MATCH_PATTERN = "/remote ((?+1)+(\d+\.?))[0-9 ]+#[ ]?([[:alnum:] ]+),[ ]?([[:alnum:] ]+)/";
 
     private $vpnServers;
+    private $ovpnFilePath;
 
     private $minPing;
     private $bestServerPosition;
 
-    public function __construct()
+    public function __construct(string $ovpnFilePath)
     {
         $this->vpnServers = [];
+        $this->ovpnFilePath = $ovpnFilePath;
         $this->minPing = 10000;
         list($matchCount, $parsedData) = $this->parseOVPNFile();
 
@@ -61,7 +62,7 @@ class OpenvpnPinger
 
     private function parseOVPNFile()
     {
-        $matchCount = preg_match_all(self::MATCH_PATTERN, file_get_contents(self::OVPN_FILE_NAME), $matches);
+        $matchCount = preg_match_all(self::MATCH_PATTERN, file_get_contents($this->ovpnFilePath), $matches);
 
         return [$matchCount, $matches];
     }
