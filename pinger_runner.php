@@ -1,7 +1,25 @@
 <?php
+/**
+ * Main file, run CLI from here.
+ *
+ * @todo More CLI feautures.
+ */
+require_once __DIR__.'/vendor/autoload.php';
 
-namespace WhoCares;
+$cliHandler = new App\Libs\Console();
+$pingCount  = $cliHandler->getPingCount();
+if (empty($pingCount) === true) {
+    $pingCount = 2;
+}
 
-require 'OpenvpnPinger.php';
+$mainPinger = new App\Libs\OpenvpnPinger(
+    $cliHandler->getConfigFilePath(),
+    $pingCount
+);
 
-(new OpenvpnPinger())->getBestServer();
+if ($cliHandler->isMutted() === true) {
+    $mainPinger->setOutputBehavior(true);
+}
+
+$mainPinger->getBestServer();
+$mainPinger->prettyPrintResult();
