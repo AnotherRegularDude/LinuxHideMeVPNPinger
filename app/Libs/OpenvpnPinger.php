@@ -2,68 +2,107 @@
 
 namespace App\Libs;
 
+/**
+ * App's main class, which provides ping and parsing methods.
+ */
 class OpenvpnPinger
 {
-    const MATCH_PATTERN = "/remote ((?+1)+(\d+\.?))[0-9 ]+#[ ]?([[:alnum:] ]+),[ ]?([[:alnum:] ]+)/";
+    const MATCH_PATTERN = '/remote ((?+1)+(\d+\.?))[0-9 ]+#[ ]?([[:alnum:] ]+),[ ]?([[:alnum:] ]+)/';
 
-    private $vpnServers;
-    private $ovpnFilePath;
+    private $_vpnServers = [];
+    private $_minPing    = 10000;
+    private $_silent     = false;
 
-    private $minPing;
-    private $bestServerPosition;
+    private $_pingHostCount;
+    private $_ovpnFilePath;
+    private $_bestServerPosition;
 
-    public function __construct(string $ovpnFilePath)
+
+    public function __construct(string $ovpnFilePath, int $pingHostCount = 0)
     {
-        $this->vpnServers = [];
-        $this->ovpnFilePath = $ovpnFilePath;
-        $this->minPing = 10000;
-        list($matchCount, $parsedData) = $this->parseOVPNFile();
+        $this->_ovpnFilePath           = $ovpnFilePath;
+        $this->_pingHostCount          = $pingHostCount;
+        list($matchCount, $parsedData) = $this->_parseOVPNFile();
 
         for ($i = 0; $i < $matchCount; ++$i) {
-            $this->vpnServers[] = [
-                'ip' => $parsedData[1][$i],
-                'country' => $parsedData[3][$i],
-                'city' => $parsedData[4][$i],
-            ];
+            $this->_vpnServers[] = [
+                                    'ip'      => $parsedData[1][$i],
+                                    'country' => $parsedData[3][$i],
+                                    'city'    => $parsedData[4][$i],
+                                   ];
         }
-    }
+
+    }//end __construct()
+
+
+    public function setOutputBehavior(bool $printOnlyResult)
+    {
+        $this->_silent = $printOnlyResult;
+
+    }//end setOutputBehavior()
+
 
     public function getBestServer()
     {
-        foreach ($this->vpnServers as $position => $serverData) {
-            echo "Processing server {$serverData['country']} {$serverData['city']}... \n";
-            $ping = $this->pingHost($serverData['ip']);
+        foreach ($this->_vpnServers as $position => $serverData) {
+            $this->_outputMessage("Processing server {$serverData['country']}, {$serverData['city']}... \n");
+            $ping = $this->_pingHost($serverData['ip']);
+            if (boolval($ping) === false) {
+                $this->_outputMessage("Server doesn't responde, skipping...\n");
+                continue;
+            }
 
-            if ($ping < $this->minPing) {
-                $this->minPing = $ping;
-                $this->bestServerPosition = $position;
+            if ($ping < $this->_minPing) {
+                $this->_minPing            = $ping;
+                $this->_bestServerPosition = $position;
             }
         }
 
-        $this->prettyPrintResult();
-    }
+        return isset($this->_bestServerPosition);
 
-    private function prettyPrintResult()
+    }//end getBestServer()
+
+
+    public function prettyPrintResult()
     {
-        $serverData = $this->vpnServers[$this->bestServerPosition];
+        $serverData = $this->_vpnServers[$this->_bestServerPosition];
         echo "Finished!\n";
         echo "Best server: {$serverData['country']} {$serverData['city']}\n";
-        echo "Ping: $this->minPing\n";
+        echo "Ping: $this->_minPing\n";
         echo "Ip: {$serverData['ip']}\n";
         echo "GG WP!\n";
-    }
 
-    private function pingHost(string $host, int $count = 2)
+    }//end prettyPrintResult()
+
+
+    private function _outputMessage(string $message)
+    {
+        if ($this->_silent === false) {
+            echo $message;
+        }
+
+    }//end _outputMessage()
+
+
+    private function _pingHost(string $host)
     {
         $fnr = 'FNR == 2 { print $(NF-1) }';
 
-        return intval(shell_exec("ping -c $count $host |  awk '$fnr' | cut -d'=' -f2"));
-    }
+        return intval(shell_exec("ping -c {$this->_pingHostCount} $host 2>/dev/null | awk '$fnr' | cut -d'=' -f2"));
 
-    private function parseOVPNFile()
+    }//end _pingHost()
+
+
+    private function _parseOVPNFile()
     {
-        $matchCount = preg_match_all(self::MATCH_PATTERN, file_get_contents($this->ovpnFilePath), $matches);
+        $matchCount = preg_match_all(self::MATCH_PATTERN, file_get_contents($this->_ovpnFilePath), $matches);
 
-        return [$matchCount, $matches];
-    }
-}
+        return [
+                $matchCount,
+                $matches,
+               ];
+
+    }//end _parseOVPNFile()
+
+
+}//end class
